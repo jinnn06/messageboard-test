@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>留言板</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    form {
+      margin-bottom: 20px;
+    }
+    input, textarea, button {
+      display: block;
+      margin: 10px 0;
+      width: 100%;
+      padding: 10px;
+      font-size: 1em;
+    }
+    #messages {
+      border-top: 1px solid #ccc;
+      padding-top: 20px;
+    }
+    .message {
+      border-bottom: 1px solid #eee;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+    }
+    .message p {
+      margin: 5px 0;
+    }
+    .message span {
+      font-size: 0.9em;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <h1>留言板</h1>
+  <form id="messageForm">
+    <input type="text" id="name" placeholder="你的名字" required />
+    <textarea id="message" placeholder="留言內容" required></textarea>
+    <button type="submit">送出留言</button>
+  </form>
+  <div id="messages">
+    <h2>留言區</h2>
+    <div id="messageList"></div>
+  </div>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec"; // 替換成你的 Apps Script 部署網址
+
+    // 發送留言
+    document.getElementById("messageForm").addEventListener("submit", async (e) => {
+      e.preventDefault(); // 防止頁面重新加載
+
+      const name = document.getElementById("name").value;
+      const message = document.getElementById("message").value;
+
+      // 發送留言到 Google Apps Script
+      try {
+        await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({ name, message }),
+          headers: { "Content-Type": "application/json" },
+        });
+
+        alert("留言已送出！");
+        document.getElementById("messageForm").reset(); // 清空輸入框
+        loadMessages(); // 重新載入留言
+      } catch (error) {
+        alert("發生錯誤，請稍後再試！");
+        console.error(error);
+      }
+    });
+
+    // 載入留言
+    async function loadMessages() {
+      try {
+        const response = await fetch(API_URL);
+        const messages = await response.json();
+
+        const messageList = document.getElementById("messageList");
+        messageList.innerHTML = ""; // 清空留言列表
+
+        messages.forEach(msg => {
+          const messageElement = document.createElement("div");
+          messageElement.classList.add("message");
+          messageElement.innerHTML = `
+            <p><strong>${msg.name}</strong></p>
+            <p>${msg.message}</p>
+            <span>${new Date(msg.timestamp).toLocaleString()}</span>
+          `;
+          messageList.appendChild(messageElement);
+        });
+      } catch (error) {
+        console.error("載入留言時發生錯誤：", error);
+      }
+    }
+
+    // 初次載入留言
+    loadMessages();
+  </script>
+</body>
+</html>
