@@ -29,6 +29,7 @@
             padding: 10px;
             background-color: #f5f5f5;
             border-radius: 5px;
+            animation: fadeIn 0.5s ease-in;
         }
         .comment-header {
             display: flex;
@@ -36,17 +37,101 @@
             margin-bottom: 5px;
             color: #666;
         }
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #666;
+        
+        /* 載入動畫相關樣式 */
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 0;
         }
-        .error {
-            color: red;
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        
+        .loading-text {
+            color: #666;
+            font-size: 16px;
+            animation: pulse 1.5s infinite;
+        }
+        
+        /* 提交按鈕樣式 */
+        .submit-button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .submit-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .submit-button.loading {
+            position: relative;
+            padding-left: 40px;
+        }
+        
+        .submit-button.loading::after {
+            content: "";
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            border: 3px solid white;
+            border-top: 3px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        /* 動畫效果 */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* 成功提示樣式 */
+        .success-message {
+            background-color: #d4edda;
+            color: #155724;
             padding: 10px;
-            background-color: #ffe6e6;
             border-radius: 5px;
             margin: 10px 0;
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        /* 錯誤提示樣式 */
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            animation: fadeIn 0.5s ease-in;
         }
     </style>
 </head>
@@ -57,31 +142,50 @@
         <h2>發表留言</h2>
         <input type="text" id="name" placeholder="你的名字" required>
         <textarea id="message" placeholder="留言內容" required></textarea>
-        <button onclick="submitComment()">送出留言</button>
+        <button onclick="submitComment()" id="submitButton" class="submit-button">送出留言</button>
     </div>
 
-    <div id="error-container"></div>
-    <div class="comment-list" id="comments">
-        <div class="loading">載入中...</div>
-    </div>
+    <div id="message-container"></div>
+    <div class="comment-list" id="comments"></div>
 
     <script>
         // 替換成你的 Google Apps Script 網址
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxLezs20Cv0oV_099KXSRv33Phha79UIUB7HrruEBLmmKmIsoUfsEAG-3c8nouxHPE/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/你的腳本ID/exec';
+        
+        // 顯示載入動畫
+        function showLoading(container, text = '載入中...') {
+            container.innerHTML = `
+                <div class="loading-container">
+                    <div class="spinner"></div>
+                    <div class="loading-text">${text}</div>
+                </div>
+            `;
+        }
+        
+        // 顯示訊息
+        function showMessage(type, text) {
+            const container = document.getElementById('message-container');
+            container.innerHTML = `
+                <div class="${type}-message">
+                    ${text}
+                </div>
+            `;
+            
+            // 3秒後自動消失
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 3000);
+        }
 
-        // 使用 JSONP 方式載入留言
+        // 載入留言
         function loadComments() {
             const commentsDiv = document.getElementById('comments');
-            commentsDiv.innerHTML = '<div class="loading">載入中...</div>';
+            showLoading(commentsDiv, '正在載入留言...');
 
-            // 建立一個唯一的回調函數名稱
             const callbackName = 'jsonpCallback_' + Date.now();
-            
-            // 建立 script 標籤
             const script = document.createElement('script');
             script.src = `${SCRIPT_URL}?callback=${callbackName}`;
             
-            // 定義回調函數
             window[callbackName] = function(response) {
                 if (response && Array.isArray(response)) {
                     commentsDiv.innerHTML = response.reverse().map(comment => `
@@ -96,35 +200,37 @@
                         </div>
                     `).join('');
                 } else {
-                    commentsDiv.innerHTML = '<div class="error">載入失敗，請重試</div>';
+                    showMessage('error', '載入留言失敗，請重試');
                 }
                 
-                // 清理回調函數和 script 標籤
                 document.body.removeChild(script);
                 delete window[callbackName];
             };
             
-            // 處理載入錯誤
             script.onerror = function() {
-                commentsDiv.innerHTML = '<div class="error">載入失敗，請重試</div>';
+                showMessage('error', '載入留言失敗，請重試');
                 document.body.removeChild(script);
                 delete window[callbackName];
             };
             
-            // 將 script 標籤加入文檔
             document.body.appendChild(script);
         }
 
         // 提交留言
-        function submitComment() {
+        async function submitComment() {
             const nameInput = document.getElementById('name');
             const messageInput = document.getElementById('message');
-            const errorContainer = document.getElementById('error-container');
+            const submitButton = document.getElementById('submitButton');
             
             if (!nameInput.value || !messageInput.value) {
-                errorContainer.innerHTML = '<div class="error">請填寫名字和留言內容！</div>';
+                showMessage('error', '請填寫名字和留言內容！');
                 return;
             }
+
+            // 禁用提交按鈕並顯示載入狀態
+            submitButton.disabled = true;
+            submitButton.classList.add('loading');
+            submitButton.textContent = '提交中...';
 
             // 建立 form 數據
             const form = document.createElement('form');
@@ -132,7 +238,6 @@
             form.action = SCRIPT_URL;
             form.target = 'hidden_iframe';
 
-            // 添加表單欄位
             const formData = {
                 name: nameInput.value,
                 message: messageInput.value
@@ -158,9 +263,19 @@
 
             // 處理提交完成
             iframe.onload = function() {
+                // 重設表單
                 nameInput.value = '';
                 messageInput.value = '';
-                errorContainer.innerHTML = '';
+                
+                // 恢復提交按鈕狀態
+                submitButton.disabled = false;
+                submitButton.classList.remove('loading');
+                submitButton.textContent = '送出留言';
+                
+                // 顯示成功訊息
+                showMessage('success', '留言發布成功！');
+                
+                // 重新載入留言
                 loadComments();
             };
 
