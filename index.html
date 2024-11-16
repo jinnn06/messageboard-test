@@ -36,6 +36,18 @@
             margin-bottom: 5px;
             color: #666;
         }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        .error {
+            color: red;
+            padding: 10px;
+            background-color: #ffe6e6;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
@@ -48,66 +60,114 @@
         <button onclick="submitComment()">送出留言</button>
     </div>
 
+    <div id="error-container"></div>
     <div class="comment-list" id="comments">
-        <!-- 留言將在這裡動態載入 -->
+        <div class="loading">載入中...</div>
     </div>
 
     <script>
-        // 替換成你的 Google Apps Script Web App URL
+        // 替換成你的 Google Apps Script 網址
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxLezs20Cv0oV_099KXSRv33Phha79UIUB7HrruEBLmmKmIsoUfsEAG-3c8nouxHPE/exec';
 
-        // 載入留言
-        async function loadComments() {
-            try {
-                const response = await fetch(SCRIPT_URL);
-                const comments = await response.json();
+        // 使用 JSONP 方式載入留言
+        function loadComments() {
+            const commentsDiv = document.getElementById('comments');
+            commentsDiv.innerHTML = '<div class="loading">載入中...</div>';
+
+            // 建立一個唯一的回調函數名稱
+            const callbackName = 'jsonpCallback_' + Date.now();
+            
+            // 建立 script 標籤
+            const script = document.createElement('script');
+            script.src = `${SCRIPT_URL}?callback=${callbackName}`;
+            
+            // 定義回調函數
+            window[callbackName] = function(response) {
+                if (response && Array.isArray(response)) {
+                    commentsDiv.innerHTML = response.reverse().map(comment => `
+                        <div class="comment">
+                            <div class="comment-header">
+                                <strong>${escapeHtml(comment.name)}</strong>
+                                <span>${new Date(comment.timestamp).toLocaleString()}</span>
+                            </div>
+                            <div class="comment-content">
+                                ${escapeHtml(comment.message)}
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    commentsDiv.innerHTML = '<div class="error">載入失敗，請重試</div>';
+                }
                 
-                const commentsDiv = document.getElementById('comments');
-                commentsDiv.innerHTML = comments.reverse().map(comment => `
-                    <div class="comment">
-                        <div class="comment-header">
-                            <strong>${escapeHtml(comment.name)}</strong>
-                            <span>${new Date(comment.timestamp).toLocaleString()}</span>
-                        </div>
-                        <div class="comment-content">
-                            ${escapeHtml(comment.message)}
-                        </div>
-                    </div>
-                `).join('');
-            } catch (error) {
-                console.error('Error loading comments:', error);
-            }
+                // 清理回調函數和 script 標籤
+                document.body.removeChild(script);
+                delete window[callbackName];
+            };
+            
+            // 處理載入錯誤
+            script.onerror = function() {
+                commentsDiv.innerHTML = '<div class="error">載入失敗，請重試</div>';
+                document.body.removeChild(script);
+                delete window[callbackName];
+            };
+            
+            // 將 script 標籤加入文檔
+            document.body.appendChild(script);
         }
 
-        // 提交新留言
-        async function submitComment() {
+        // 提交留言
+        function submitComment() {
             const nameInput = document.getElementById('name');
             const messageInput = document.getElementById('message');
+            const errorContainer = document.getElementById('error-container');
             
             if (!nameInput.value || !messageInput.value) {
-                alert('請填寫名字和留言內容！');
+                errorContainer.innerHTML = '<div class="error">請填寫名字和留言內容！</div>';
                 return;
             }
 
-            try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        name: nameInput.value,
-                        message: messageInput.value
-                    })
-                });
+            // 建立 form 數據
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = SCRIPT_URL;
+            form.target = 'hidden_iframe';
 
-                const result = await response.json();
-                if (result.status === 'success') {
-                    nameInput.value = '';
-                    messageInput.value = '';
-                    loadComments();
-                }
-            } catch (error) {
-                console.error('Error submitting comment:', error);
-                alert('提交留言時發生錯誤，請稍後再試！');
+            // 添加表單欄位
+            const formData = {
+                name: nameInput.value,
+                message: messageInput.value
+            };
+
+            Object.keys(formData).forEach(key => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = formData[key];
+                form.appendChild(input);
+            });
+
+            // 建立隱藏的 iframe
+            let iframe = document.querySelector('#hidden_iframe');
+            if (!iframe) {
+                iframe = document.createElement('iframe');
+                iframe.name = 'hidden_iframe';
+                iframe.id = 'hidden_iframe';
+                iframe.style.display = 'none';
+                document.body.appendChild(iframe);
             }
+
+            // 處理提交完成
+            iframe.onload = function() {
+                nameInput.value = '';
+                messageInput.value = '';
+                errorContainer.innerHTML = '';
+                loadComments();
+            };
+
+            // 提交表單
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
         }
 
         // HTML 轉義函數
