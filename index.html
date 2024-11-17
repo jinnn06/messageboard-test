@@ -83,26 +83,29 @@
             
             // 定義回調函數
             window[callbackName] = function(response) {
-                if (response && Array.isArray(response)) {
-                    commentsDiv.innerHTML = response.reverse().map(comment => `
-                        <div class="comment">
-                            <div class="comment-header">
-                                <strong>${escapeHtml(comment.name)}</strong>
-                                <span>${new Date(comment.timestamp).toLocaleString()}</span>
-                            </div>
-                            <div class="comment-content">
-                                ${escapeHtml(comment.message)}
-                            </div>
+            if (response && Array.isArray(response)) {
+                commentsDiv.innerHTML = response.reverse().map(comment => `
+                    <div class="comment">
+                        <div class="comment-header">
+                            <strong>${escapeHtml(comment.name)}</strong>
+                            <span>${new Date(comment.timestamp).toLocaleString()}</span>
                         </div>
-                    `).join('');
-                } else {
-                    commentsDiv.innerHTML = '<div class="error">載入失敗，請重試</div>';
-                }
-                
-                // 清理回調函數和 script 標籤
-                document.body.removeChild(script);
-                delete window[callbackName];
-            };
+                        <div class="comment-content">
+                            ${escapeHtml(comment.message)}
+                            <br>
+                            <small style="color: gray;">#${escapeHtml(comment.order)}</small>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                commentsDiv.innerHTML = '<div class="error">載入失敗，請重試</div>';
+            }
+        
+            // 清理回調函數和 script 標籤
+            document.body.removeChild(script);
+            delete window[callbackName];
+        };
+
             
             // 處理載入錯誤
             script.onerror = function() {
