@@ -116,28 +116,29 @@
         }
 
         // 提交留言
-        function submitComment() {
+       function submitComment() {
             const nameInput = document.getElementById('name');
             const messageInput = document.getElementById('message');
             const errorContainer = document.getElementById('error-container');
-            
-            if (!nameInput.value || !messageInput.value) {
-                errorContainer.innerHTML = '<div class="error">請填寫名字和留言內容！</div>';
+        
+            // 檢查留言內容是否完整
+            if (!messageInput.value) {
+                errorContainer.innerHTML = '<div class="error">請填寫留言內容！</div>';
                 return;
             }
-
-            // 建立 form 數據
+        
+            // 如果使用者沒填名字，讓前端使用一個佔位符（後端將分配順序）
+            const name = nameInput.value.trim() || ""; // 如果姓名為空，傳空字串
+            const message = messageInput.value;
+        
+            // 建立表單數據
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = SCRIPT_URL;
             form.target = 'hidden_iframe';
-
+        
             // 添加表單欄位
-            const formData = {
-                name: nameInput.value,
-                message: messageInput.value
-            };
-
+            const formData = { name, message };
             Object.keys(formData).forEach(key => {
                 const input = document.createElement('input');
                 input.type = 'hidden';
@@ -145,7 +146,7 @@
                 input.value = formData[key];
                 form.appendChild(input);
             });
-
+        
             // 建立隱藏的 iframe
             let iframe = document.querySelector('#hidden_iframe');
             if (!iframe) {
@@ -155,20 +156,21 @@
                 iframe.style.display = 'none';
                 document.body.appendChild(iframe);
             }
-
-            // 處理提交完成
+        
+            // 提交完成後清空表單
             iframe.onload = function() {
                 nameInput.value = '';
                 messageInput.value = '';
                 errorContainer.innerHTML = '';
-                loadComments();
+                loadComments(); // 重新載入留言
             };
-
+        
             // 提交表單
             document.body.appendChild(form);
             form.submit();
             document.body.removeChild(form);
         }
+
 
         // HTML 轉義函數
         function escapeHtml(text) {
